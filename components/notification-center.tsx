@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Bell, BellRing, Calendar, Clock, Settings, Star, Sparkles } from "lucide-react"
+import { Bell, BellRing, Calendar, Clock, Settings, Star } from "lucide-react"
 
 interface NotificationCenterProps {
   upcomingDoses: any[]
@@ -15,16 +15,18 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [permission, setPermission] = useState<NotificationPermission>("default")
   const [activeNotifications, setActiveNotifications] = useState<Set<string>>(new Set())
-  const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
+    // Check notification permission on mount
     if ("Notification" in window) {
       setPermission(Notification.permission)
       setNotificationsEnabled(Notification.permission === "granted")
     }
   }, [])
 
+  // Add this after the existing useEffect for notification permission
   useEffect(() => {
+    // Request notification permission on component mount
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission().then((permission) => {
         setPermission(permission)
@@ -33,6 +35,7 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
     }
   }, [])
 
+  // Replace the existing notification scheduling useEffect with this enhanced version
   useEffect(() => {
     if (!notificationsEnabled) return
 
@@ -53,6 +56,7 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
               })
               setActiveNotifications((prev) => new Set(prev).add(`dose-${dose.medicationId}`))
 
+              // Trigger in-app notification popup
               window.dispatchEvent(
                 new CustomEvent("medtrack-dose-due", {
                   detail: { dose },
@@ -60,7 +64,6 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
               )
             }
           }, timeUntilDose)
-          ;(window as any).medtrackTimeouts = (window as any).medtrackTimeouts || []
           ;(window as any).medtrackTimeouts.push(doseTimeout)
         }
       })
@@ -108,98 +111,60 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
         variant="outline"
         size="icon"
         onClick={() => setShowNotifications(!showNotifications)}
-        onMouseEnter={() => setShowPreview(true)}
-        onMouseLeave={() => setShowPreview(false)}
-        className={`btn-3d relative ${
-          hasUrgentDoses
-            ? "pulse-glow border-red-300 bg-gradient-to-r from-red-50 to-orange-50"
-            : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200"
-        }`}
+        className={hasUrgentDoses ? "animate-pulse border-red-500 shadow-md shadow-red-200" : ""}
       >
         {hasUrgentDoses ? (
           <BellRing
             className={`w-4 h-4 text-red-500 ${
-              urgentDoses.some((dose) => dose.timeUntil <= 5 * 60 * 1000) ? "animate-bounce" : ""
+              urgentDoses.some((dose) => dose.timeUntil <= 5 * 60 * 1000) ? "animate-ping opacity-70" : ""
             }`}
           />
         ) : (
-          <Bell className="w-4 h-4 text-blue-600" />
+          <Bell className="w-4 h-4" />
         )}
         {upcomingDoses.length > 0 && (
-          <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs gradient-primary-solid text-white border-0">
-            {upcomingDoses.length}
-          </Badge>
+          <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs">{upcomingDoses.length}</Badge>
+        )}
+        {upcomingDoses.length > 0 && !showNotifications && (
+          <div className="absolute top-10 right-0 bg-white shadow-lg border rounded-md p-2 w-64 text-xs">
+            <p className="font-medium">Next: {upcomingDoses[0].medicationName}</p>
+            <p className="text-gray-600">
+              {new Date(upcomingDoses[0].scheduledTime).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              {" - "}
+              {Math.floor(upcomingDoses[0].timeUntil / (1000 * 60 * 60))}h{" "}
+              {Math.floor((upcomingDoses[0].timeUntil % (1000 * 60 * 60)) / (1000 * 60))}m
+            </p>
+          </div>
         )}
       </Button>
 
-      {/* Left-positioned notification preview */}
-      {upcomingDoses.length > 0 && (
-        <div className={`notification-preview ${showPreview && !showNotifications ? "show" : ""}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-blue-500" />
-            <span className="font-semibold text-gray-800">Next Dose</span>
-          </div>
-          <div className="space-y-1">
-            <p className="font-medium text-gray-900">{upcomingDoses[0].medicationName}</p>
-            <p className="text-gray-600 text-xs">{upcomingDoses[0].dosage}</p>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Clock className="w-3 h-3" />
-              <span>
-                {new Date(upcomingDoses[0].scheduledTime).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-              <span className="text-blue-600 font-medium">
-                in {Math.floor(upcomingDoses[0].timeUntil / (1000 * 60 * 60))}h{" "}
-                {Math.floor((upcomingDoses[0].timeUntil % (1000 * 60 * 60)) / (1000 * 60))}m
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showNotifications && (
-        <div className="absolute right-0 top-12 w-96 z-50 slide-in-right">
-          <Card className="card-3d border-0">
-            <CardHeader className="pb-3 gradient-primary-solid text-white rounded-t-2xl">
+        <div className="absolute right-0 top-12 w-96 z-50">
+          <Card className="shadow-lg border-2">
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                    <Bell className="w-4 h-4" />
-                  </div>
-                  <CardTitle className="text-lg">Smart Reminders</CardTitle>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNotifications(false)}
-                  className="text-white hover:bg-white/20"
-                >
+                <CardTitle className="text-lg">Smart Reminders</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowNotifications(false)}>
                   ×
                 </Button>
               </div>
-              <CardDescription className="text-blue-100">Intelligent medication notifications</CardDescription>
+              <CardDescription>Intelligent medication notifications</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 p-4">
+            <CardContent className="space-y-4">
               {/* Enhanced Notification Settings */}
-              <div className="p-4 glass-effect rounded-xl border border-white/20">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-gray-800">Smart Notifications</span>
-                  <Badge
-                    variant={notificationsEnabled ? "default" : "secondary"}
-                    className={notificationsEnabled ? "gradient-success text-white border-0" : ""}
-                  >
+              <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Smart Notifications</span>
+                  <Badge variant={notificationsEnabled ? "default" : "secondary"}>
                     {notificationsEnabled ? "Active" : "Disabled"}
                   </Badge>
                 </div>
-                <p className="text-xs text-gray-600 mb-3">Get reminders 15 minutes before and at dose time</p>
+                <p className="text-xs text-gray-600 mb-2">Get reminders 15 minutes before and at dose time</p>
                 {!notificationsEnabled && (
-                  <Button
-                    size="sm"
-                    onClick={requestNotificationPermission}
-                    className="w-full btn-3d gradient-primary-solid text-white border-0"
-                  >
+                  <Button size="sm" onClick={requestNotificationPermission} className="w-full">
                     <Settings className="w-3 h-3 mr-2" />
                     Enable Smart Reminders
                   </Button>
@@ -209,8 +174,8 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
               {/* Upcoming Doses with Enhanced Info */}
               {upcomingDoses.length > 0 ? (
                 <div className="space-y-3">
-                  <h4 className="font-medium text-sm flex items-center gap-2 text-gray-800">
-                    <Clock className="w-4 h-4 text-blue-500" />
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
                     Upcoming Doses
                   </h4>
                   {upcomingDoses.slice(0, 5).map((dose, index) => {
@@ -222,40 +187,34 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
                     return (
                       <div
                         key={index}
-                        className={`p-4 rounded-xl border transition-all duration-300 ${
+                        className={`p-3 rounded-lg border ${
                           isVeryUrgent
-                            ? "border-red-300 gradient-secondary text-white pulse-glow"
+                            ? "border-red-300 bg-red-50 animate-pulse"
                             : isUrgent
-                              ? "border-orange-200 gradient-warning"
-                              : "border-gray-200 glass-effect"
+                              ? "border-orange-200 bg-orange-50"
+                              : "border-gray-200 bg-white"
                         }`}
                       >
-                        <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-start justify-between mb-2">
                           <div>
-                            <p className={`font-medium text-sm ${isVeryUrgent ? "text-white" : "text-gray-900"}`}>
-                              {dose.medicationName}
-                            </p>
-                            <p className={`text-xs ${isVeryUrgent ? "text-white/80" : "text-gray-600"}`}>
-                              {dose.dosage}
-                            </p>
+                            <p className="font-medium text-sm">{dose.medicationName}</p>
+                            <p className="text-xs text-gray-600">{dose.dosage}</p>
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             {isVeryUrgent && (
-                              <Badge variant="destructive" className="text-xs animate-pulse bg-white text-red-600">
+                              <Badge variant="destructive" className="text-xs animate-pulse">
                                 Now!
                               </Badge>
                             )}
                             {isUrgent && !isVeryUrgent && (
-                              <Badge className="text-xs bg-orange-500 text-white border-0">Soon</Badge>
+                              <Badge variant="destructive" className="text-xs">
+                                Soon
+                              </Badge>
                             )}
                           </div>
                         </div>
 
-                        <div
-                          className={`flex items-center gap-2 text-xs mb-3 ${
-                            isVeryUrgent ? "text-white/80" : "text-gray-500"
-                          }`}
-                        >
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
                           <Clock className="w-3 h-3" />
                           <span>
                             {new Date(dose.scheduledTime).toLocaleTimeString([], {
@@ -270,11 +229,7 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
                         </div>
 
                         {/* Points incentive */}
-                        <div
-                          className={`flex items-center gap-1 mb-3 text-xs ${
-                            isVeryUrgent ? "text-yellow-200" : "text-yellow-600"
-                          }`}
-                        >
+                        <div className="flex items-center gap-1 mb-2 text-xs text-yellow-600">
                           <Star className="w-3 h-3" />
                           <span>Earn 15 points for on-time logging</span>
                         </div>
@@ -284,11 +239,7 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
                             size="sm"
                             variant="outline"
                             onClick={() => addToGoogleCalendar(dose)}
-                            className={`flex-1 text-xs btn-3d ${
-                              isVeryUrgent
-                                ? "bg-white/20 border-white/30 text-white hover:bg-white/30"
-                                : "border-blue-200 text-blue-600 hover:bg-blue-50"
-                            }`}
+                            className="flex-1 text-xs"
                           >
                             <Calendar className="w-3 h-3 mr-1" />
                             Add to Calendar
@@ -299,11 +250,9 @@ export default function NotificationCenter({ upcomingDoses }: NotificationCenter
                   })}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Bell className="w-8 h-8 text-blue-500" />
-                  </div>
-                  <p className="text-sm text-gray-600 font-medium">No upcoming doses</p>
+                <div className="text-center py-6">
+                  <Bell className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No upcoming doses</p>
                   <p className="text-xs text-gray-400">You're all caught up!</p>
                 </div>
               )}

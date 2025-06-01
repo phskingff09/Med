@@ -13,12 +13,6 @@ interface RewardsCenterProps {
 }
 
 const achievements = {
-  "first-log": {
-    title: "First Steps",
-    description: "Logged your first dose",
-    icon: "🎯",
-    points: 50,
-  },
   "week-streak": {
     title: "Week Warrior",
     description: "7 days in a row",
