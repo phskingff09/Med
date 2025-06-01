@@ -147,7 +147,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50">
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* Hero Section */}
         <div className="flex-1 flex flex-col justify-center p-8 lg:p-12">
@@ -157,8 +157,8 @@ export default function AuthPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="flex items-start gap-3">
-                <div className="bg-blue-100 p-2 rounded-full flex-shrink-0">
-                  <Calendar className="h-6 w-6 text-blue-600" />
+                <div className="gradient-primary p-3 rounded-2xl flex-shrink-0 shadow-lg">
+                  <Calendar className="h-6 w-6 text-white" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Smart Scheduling</h3>
@@ -209,7 +209,7 @@ export default function AuthPage() {
 
         {/* Auth Form */}
         <div className="flex-1 flex items-center justify-center p-8">
-          <Card className="w-full max-w-md shadow-xl">
+          <Card className="w-full max-w-md card-3d border-0">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
@@ -352,7 +352,7 @@ export default function AuthPage() {
         </div>
       </div>
 
-      <footer className="bg-white bg-opacity-80 py-6 border-t">
+      <footer className="glass-effect py-6 border-t border-white/20">
         <div className="container mx-auto px-4 text-center text-gray-600">
           <p className="text-sm">© 2024 MedTrack. All rights reserved.</p>
           <p className="text-xs mt-1">Your health data is stored securely and never shared.</p>

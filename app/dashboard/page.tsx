@@ -14,6 +14,7 @@ import {
   ListChecks,
   Activity,
   Trophy,
+  Star,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,7 +37,6 @@ import NotificationCenter from "@/components/notification-center"
 import RewardsCenter from "@/components/rewards-center"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-// Add these imports at the top
 import DoseNotificationPopup from "@/components/dose-notification-popup"
 
 interface Medication {
@@ -89,12 +89,14 @@ export default function MedTrackDashboard() {
     level: 1,
     achievements: [],
     lastLogDate: null,
+    hasFirstLog: false,
   })
   const [showRewards, setShowRewards] = useState(false)
   const [showProfileManager, setShowProfileManager] = useState(false)
   const [showExportManager, setShowExportManager] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [showFirstLogCelebration, setShowFirstLogCelebration] = useState(false)
 
   const router = useRouter()
 
@@ -111,7 +113,6 @@ export default function MedTrackDashboard() {
         }
         setUser(session.user)
 
-        // Update default profile with user's name
         if (session.user.user_metadata?.name) {
           setProfiles((prev) =>
             prev.map((profile) =>
@@ -206,7 +207,6 @@ export default function MedTrackDashboard() {
           const doseTime = new Date()
           doseTime.setHours(hours, minutes, 0, 0)
 
-          // If time has passed today, schedule for tomorrow
           if (doseTime <= now) {
             doseTime.setDate(doseTime.getDate() + 1)
           }
@@ -237,7 +237,6 @@ export default function MedTrackDashboard() {
   }
 
   const logDose = (log: Omit<DoseLog, "id" | "timestamp">) => {
-    // Check if user can still log more doses for this medication today
     const medication = medications.find((med) => med.id === log.medicationId)
     if (!medication) return
 
@@ -249,7 +248,6 @@ export default function MedTrackDashboard() {
         existingLog.status === "taken",
     )
 
-    // Prevent logging more "taken" doses than scheduled
     if (log.status === "taken" && todayTakenLogs.length >= medication.frequency) {
       alert(`You've already logged all ${medication.frequency} doses for ${medication.name} today.`)
       return
@@ -263,7 +261,6 @@ export default function MedTrackDashboard() {
     }
     setDoseLogs((prev) => [...prev, newLog])
 
-    // Calculate rewards for taken doses
     if (log.status === "taken") {
       calculateRewards(newLog)
     }
@@ -277,6 +274,15 @@ export default function MedTrackDashboard() {
       let newPoints = prev.points
       let newStreak = prev.streak
       const newAchievements = [...prev.achievements]
+      const isFirstLog = !prev.hasFirstLog
+
+      // First log bonus
+      if (isFirstLog) {
+        newPoints += 50
+        newAchievements.push("first-log")
+        setShowFirstLogCelebration(true)
+        setTimeout(() => setShowFirstLogCelebration(false), 3000)
+      }
 
       // Base points for taking medication
       newPoints += 10
@@ -321,6 +327,7 @@ export default function MedTrackDashboard() {
         level: newLevel,
         achievements: newAchievements,
         lastLogDate: logDate,
+        hasFirstLog: true,
       }
     })
   }
@@ -334,12 +341,13 @@ export default function MedTrackDashboard() {
     }
   }
 
-  // Show loading while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-sky-50">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <div className="w-16 h-16 mx-auto mb-4 gradient-primary-light rounded-full flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
           <h2 className="text-2xl font-semibold text-gray-800">Loading MedTrack...</h2>
           <p className="text-gray-600 mt-2">Preparing your medication dashboard</p>
         </div>
@@ -351,16 +359,36 @@ export default function MedTrackDashboard() {
   const activeProfile_obj = profiles.find((p) => p.id === activeProfile)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto p-4 max-w-7xl">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">MedTrack</h1>
-              <p className="text-gray-600">Medication Adherence & Analytics Platform</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-sky-50">
+      {/* First Log Celebration */}
+      {showFirstLogCelebration && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="card-3d p-8 max-w-md mx-4 text-center first-log-celebration">
+            <div className="w-20 h-20 mx-auto mb-4 gradient-success-solid rounded-full flex items-center justify-center">
+              <Star className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">🎉 First Log Bonus!</h2>
+            <p className="text-gray-600 mb-4">Congratulations on your first dose log! You've earned 50 bonus points.</p>
+            <div className="gradient-primary-light p-3 rounded-lg">
+              <p className="text-blue-700 font-semibold">+50 Points Earned!</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="container mx-auto p-6 max-w-7xl">
+        {/* Refined Header */}
+        <div className="mb-8 fade-in-up">
+          <div className="flex items-center justify-between mb-6">
+            <div className="space-y-2">
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-sky-600 bg-clip-text text-transparent">
+                MedTrack
+              </h1>
+              <p className="text-lg text-gray-600 font-medium">Medication Adherence Platform</p>
               {user && (
-                <p className="text-sm text-gray-500 mt-1">Welcome back, {user.user_metadata?.name || user.email}!</p>
+                <p className="text-sm text-gray-500 gradient-primary-light px-3 py-1 rounded-full inline-block">
+                  Welcome back, {user.user_metadata?.name || user.email}! ✨
+                </p>
               )}
             </div>
             <div className="flex items-center gap-4">
@@ -368,24 +396,33 @@ export default function MedTrackDashboard() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <User className="w-4 h-4" />
+                  <Button className="btn-primary px-6">
+                    <User className="w-4 h-4 mr-2" />
                     <span>{activeProfile_obj?.name}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Profile Management</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowProfileManager(true)}>
-                    <User className="w-4 h-4 mr-2" />
+                <DropdownMenuContent align="end" className="card-3d border-0 p-2">
+                  <DropdownMenuLabel className="text-gray-700">Profile Management</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-gray-200" />
+                  <DropdownMenuItem
+                    onClick={() => setShowProfileManager(true)}
+                    className="rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <User className="w-4 h-4 mr-2 text-blue-500" />
                     Manage Profiles
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowRewards(true)}>
-                    <span className="mr-2">🏆</span>
+                  <DropdownMenuItem
+                    onClick={() => setShowRewards(true)}
+                    className="rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <Trophy className="w-4 h-4 mr-2 text-blue-500" />
                     View Rewards
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
+                  <DropdownMenuSeparator className="bg-gray-200" />
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="rounded-lg hover:bg-red-50 transition-colors text-red-600"
+                  >
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
                   </DropdownMenuItem>
@@ -394,136 +431,174 @@ export default function MedTrackDashboard() {
             </div>
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card className="shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Active Medications</p>
-                    <p className="text-2xl font-bold">{activeMedications.length}</p>
-                  </div>
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shadow-inner">
-                    <Pill className="w-5 h-5 text-blue-600" />
-                  </div>
+          {/* Refined Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="card-3d p-6 group hover:scale-105 transition-transform duration-300">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Active Medications</p>
+                  <p className="text-3xl font-bold text-gray-800">{activeMedications.length}</p>
+                  <p className="text-xs text-blue-600 mt-1">Ready to track</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Today's Doses</p>
-                    <p className="text-2xl font-bold">
-                      {activeMedications.reduce((sum, med) => sum + med.frequency, 0)}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center shadow-inner">
-                    <ListChecks className="w-5 h-5 text-green-600" />
-                  </div>
+                <div className="w-14 h-14 gradient-primary-solid rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <Pill className="w-7 h-7 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card className="shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Logged Doses</p>
-                    <p className="text-2xl font-bold">
-                      {doseLogs.filter((log) => log.profileId === activeProfile).length}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center shadow-inner">
-                    <Activity className="w-5 h-5 text-purple-600" />
-                  </div>
+            <div className="card-3d p-6 group hover:scale-105 transition-transform duration-300">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Today's Doses</p>
+                  <p className="text-3xl font-bold text-gray-800">
+                    {activeMedications.reduce((sum, med) => sum + med.frequency, 0)}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">Scheduled</p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="w-14 h-14 gradient-success-solid rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <ListChecks className="w-7 h-7 text-white" />
+                </div>
+              </div>
+            </div>
 
-            <Card
-              className="shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+            <div className="card-3d p-6 group hover:scale-105 transition-transform duration-300">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Logged Doses</p>
+                  <p className="text-3xl font-bold text-gray-800">
+                    {doseLogs.filter((log) => log.profileId === activeProfile).length}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">Total recorded</p>
+                </div>
+                <div className="w-14 h-14 gradient-primary-light rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300 border border-blue-200">
+                  <Activity className="w-7 h-7 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="card-3d p-6 group hover:scale-105 transition-transform duration-300 cursor-pointer"
               onClick={() => setShowRewards(true)}
             >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Rewards Level</p>
-                    <p className="text-2xl font-bold">{rewards.level}</p>
-                    <p className="text-xs text-gray-500">{rewards.points} points</p>
-                  </div>
-                  <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center shadow-inner">
-                    <Trophy className="w-5 h-5 text-yellow-600" />
-                  </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Rewards Level</p>
+                  <p className="text-3xl font-bold text-gray-800">{rewards.level}</p>
+                  <p className="text-xs text-yellow-600 mt-1">{rewards.points} points</p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="w-14 h-14 gradient-warning-solid rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <Trophy className="w-7 h-7 text-white" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="medications">Medications</TabsTrigger>
-            <TabsTrigger value="logger">Log Doses</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        {/* Refined Main Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <TabsList className="grid w-full grid-cols-4 card-3d p-2 bg-white/80 h-12">
+            <TabsTrigger
+              value="dashboard"
+              className="data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg transition-all h-8 flex items-center justify-center"
+            >
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger
+              value="medications"
+              className="data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg transition-all h-8 flex items-center justify-center"
+            >
+              Medications
+            </TabsTrigger>
+            <TabsTrigger
+              value="logger"
+              className="data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg transition-all h-8 flex items-center justify-center"
+            >
+              Log Doses
+            </TabsTrigger>
+            <TabsTrigger
+              value="analytics"
+              className="data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg transition-all h-8 flex items-center justify-center"
+            >
+              Analytics
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <TabsContent value="dashboard" className="space-y-8 scale-in">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Upcoming Doses */}
-              <Card className="shadow-md border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bell className="w-5 h-5" />
+              <Card className="card-3d border-0">
+                <CardHeader className="gradient-primary-solid text-white rounded-t-2xl">
+                  <CardTitle className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                      <Bell className="w-5 h-5" />
+                    </div>
                     Upcoming Doses
                   </CardTitle>
-                  <CardDescription>Next scheduled medications</CardDescription>
+                  <CardDescription className="text-blue-100">Next scheduled medications</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   {upcomingDoses.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {upcomingDoses.map((dose, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="font-medium">{dose.medicationName}</p>
-                            <p className="text-sm text-gray-600">{dose.dosage}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium">
-                              {new Date(dose.scheduledTime).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {Math.round(dose.timeUntil / (1000 * 60 * 60))}h{" "}
-                              {Math.round((dose.timeUntil % (1000 * 60 * 60)) / (1000 * 60))}m
-                            </p>
+                        <div
+                          key={index}
+                          className="gradient-primary-light p-4 rounded-xl border border-blue-200 hover:bg-blue-100 transition-all duration-300"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 gradient-primary-solid rounded-full flex items-center justify-center">
+                                <Pill className="w-5 h-5 text-white" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-800">{dose.medicationName}</p>
+                                <p className="text-sm text-gray-600">{dose.dosage}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-blue-600">
+                                {new Date(dose.scheduledTime).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                in {Math.round(dose.timeUntil / (1000 * 60 * 60))}h{" "}
+                                {Math.round((dose.timeUntil % (1000 * 60 * 60)) / (1000 * 60))}m
+                              </p>
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-center py-8">No upcoming doses scheduled</p>
+                    <div className="text-center py-12">
+                      <div className="w-20 h-20 gradient-neutral-light rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">
+                        <Bell className="w-10 h-10 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 font-medium">No upcoming doses scheduled</p>
+                      <p className="text-sm text-gray-400">You're all caught up! 🎉</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
 
               {/* Recent Activity */}
-              <Card className="shadow-md border border-gray-200">
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Latest dose logs</CardDescription>
+              <Card className="card-3d border-0">
+                <CardHeader className="gradient-success-solid text-white rounded-t-2xl">
+                  <CardTitle className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                      <Activity className="w-5 h-5" />
+                    </div>
+                    Recent Activity
+                  </CardTitle>
+                  <CardDescription className="text-green-100">Latest dose logs</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   {doseLogs
                     .filter((log) => log.profileId === activeProfile)
                     .slice(-5)
                     .reverse().length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {doseLogs
                         .filter((log) => log.profileId === activeProfile)
                         .slice(-5)
@@ -531,108 +606,159 @@ export default function MedTrackDashboard() {
                         .map((log) => {
                           const medication = medications.find((med) => med.id === log.medicationId)
                           return (
-                            <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div>
-                                <p className="font-medium">{medication?.name}</p>
-                                <p className="text-sm text-gray-600">
-                                  {new Date(log.timestamp).toLocaleDateString()} at{" "}
-                                  {new Date(log.timestamp).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
+                            <div
+                              key={log.id}
+                              className="gradient-success-light p-4 rounded-xl border border-green-200 hover:bg-green-100 transition-all duration-300"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`w-3 h-3 rounded-full ${
+                                      log.status === "taken"
+                                        ? "bg-green-500"
+                                        : log.status === "missed"
+                                          ? "bg-red-500"
+                                          : "bg-yellow-500"
+                                    }`}
+                                  />
+                                  <div>
+                                    <p className="font-semibold text-gray-800">{medication?.name}</p>
+                                    <p className="text-sm text-gray-600">
+                                      {new Date(log.timestamp).toLocaleDateString()} at{" "}
+                                      {new Date(log.timestamp).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Badge
+                                  className={`${
+                                    log.status === "taken"
+                                      ? "bg-green-500 text-white border-0"
+                                      : log.status === "missed"
+                                        ? "bg-red-500 text-white border-0"
+                                        : "bg-yellow-500 text-white border-0"
+                                  }`}
+                                >
+                                  {log.status}
+                                </Badge>
                               </div>
-                              <Badge
-                                variant={
-                                  log.status === "taken"
-                                    ? "default"
-                                    : log.status === "missed"
-                                      ? "destructive"
-                                      : "secondary"
-                                }
-                              >
-                                {log.status}
-                              </Badge>
                             </div>
                           )
                         })}
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-center py-8">No dose logs yet</p>
+                    <div className="text-center py-12">
+                      <div className="w-20 h-20 gradient-neutral-light rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">
+                        <Activity className="w-10 h-10 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 font-medium">No dose logs yet</p>
+                      <p className="text-sm text-gray-400">Start logging to see your activity</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
             </div>
 
             {/* Quick Actions */}
-            <Card className="shadow-md border border-gray-200">
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
+            <Card className="card-3d border-0">
+              <CardHeader className="gradient-primary-light rounded-t-2xl border-b border-blue-200">
+                <CardTitle className="text-blue-800">Quick Actions</CardTitle>
+                <CardDescription className="text-blue-600">Get started with these common tasks</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button onClick={() => setShowMedicationForm(true)} className="h-20 flex flex-col gap-2">
-                    <Plus className="w-6 h-6" />
-                    Add Medication
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Button
+                    onClick={() => setShowMedicationForm(true)}
+                    className="h-24 btn-primary flex flex-col gap-3 group"
+                  >
+                    <Plus className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                    <span className="font-semibold">Add Medication</span>
                   </Button>
-                  <Button variant="outline" onClick={() => setActiveTab("logger")} className="h-20 flex flex-col gap-2">
-                    <Calendar className="w-6 h-6" />
-                    Log Dose
+                  <Button onClick={() => setActiveTab("logger")} className="h-24 btn-light flex flex-col gap-3 group">
+                    <Calendar className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                    <span className="font-semibold">Log Dose</span>
                   </Button>
                   <Button
-                    variant="outline"
                     onClick={() => setActiveTab("analytics")}
-                    className="h-20 flex flex-col gap-2"
+                    className="h-24 btn-light flex flex-col gap-3 group"
                   >
-                    <BarChart3 className="w-6 h-6" />
-                    View Analytics
+                    <BarChart3 className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                    <span className="font-semibold">View Analytics</span>
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="medications">
-            <Card className="shadow-md border border-gray-200">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Medications</CardTitle>
-                  <CardDescription>Manage your medication regimen</CardDescription>
+          <TabsContent value="medications" className="scale-in">
+            <Card className="card-3d border-0">
+              <CardHeader className="gradient-primary-solid text-white rounded-t-2xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                        <Pill className="w-5 h-5" />
+                      </div>
+                      Medications
+                    </CardTitle>
+                    <CardDescription className="text-blue-100">Manage your medication regimen</CardDescription>
+                  </div>
+                  <Button
+                    onClick={() => setShowMedicationForm(true)}
+                    className="bg-white/20 border-white/30 text-white hover:bg-white/30 transition-all duration-300"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Medication
+                  </Button>
                 </div>
-                <Button onClick={() => setShowMedicationForm(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Medication
-                </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 {activeMedications.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {activeMedications.map((medication) => (
-                      <Card key={medication.id} className="border-l-4 border-l-blue-500 shadow-sm">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-2">
-                            <h3 className="font-semibold">{medication.name}</h3>
-                            <Badge variant="secondary">{medication.category}</Badge>
+                      <Card
+                        key={medication.id}
+                        className="card-3d border-l-4 border-l-blue-500 hover:scale-105 transition-transform duration-300"
+                      >
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-4">
+                            <h3 className="font-bold text-lg text-gray-800">{medication.name}</h3>
+                            <Badge className="bg-blue-500 text-white border-0">{medication.category}</Badge>
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">{medication.dosage}</p>
-                          <p className="text-sm mb-2">
-                            <strong>Frequency:</strong> {medication.frequency}x daily
+                          <p className="text-gray-600 mb-3 font-medium">{medication.dosage}</p>
+                          <p className="text-sm mb-3">
+                            <strong className="text-gray-700">Frequency:</strong> {medication.frequency}x daily
                           </p>
-                          <div className="text-sm">
-                            <strong>Times:</strong> {medication.times.join(", ")}
+                          <div className="text-sm mb-4">
+                            <strong className="text-gray-700">Times:</strong>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {medication.times.map((time, index) => (
+                                <Badge key={index} variant="outline" className="text-xs border-blue-200 text-blue-600">
+                                  {time}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
                           {medication.instructions && (
-                            <p className="text-xs text-gray-500 mt-2">{medication.instructions}</p>
+                            <p className="text-xs text-gray-500 gradient-neutral-light p-2 rounded-lg border border-gray-200">
+                              {medication.instructions}
+                            </p>
                           )}
                         </CardContent>
                       </Card>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500 mb-4">No medications added yet</p>
-                    <Button onClick={() => setShowMedicationForm(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
+                  <div className="text-center py-16">
+                    <div className="w-24 h-24 gradient-neutral-light rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-200">
+                      <Pill className="w-12 h-12 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500 mb-4 text-lg font-medium">No medications added yet</p>
+                    <p className="text-gray-400 mb-6">Start by adding your first medication to begin tracking</p>
+                    <Button onClick={() => setShowMedicationForm(true)} className="btn-primary px-8 py-3">
+                      <Plus className="w-5 h-5 mr-2" />
                       Add Your First Medication
                     </Button>
                   </div>
@@ -641,7 +767,7 @@ export default function MedTrackDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="logger">
+          <TabsContent value="logger" className="scale-in">
             <DoseLogger
               medications={activeMedications}
               onLogDose={logDose}
@@ -650,25 +776,25 @@ export default function MedTrackDashboard() {
             />
           </TabsContent>
 
-          <TabsContent value="analytics">
+          <TabsContent value="analytics" className="scale-in">
             <AnalyticsDashboard
               medications={activeMedications}
               doseLogs={doseLogs.filter((log) => log.profileId === activeProfile)}
             />
 
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => setShowExportManager(true)} className="flex items-center gap-2">
-                <Download className="w-4 h-4" />
+            <div className="mt-8 flex justify-end">
+              <Button onClick={() => setShowExportManager(true)} className="btn-primary px-6 py-3">
+                <Download className="w-5 h-5 mr-2" />
                 Export Data
               </Button>
             </div>
           </TabsContent>
         </Tabs>
 
-        {/* Modals */}
+        {/* Enhanced Modals */}
         {showRewards && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-lg border border-gray-200">
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="card-3d max-w-2xl w-full max-h-[90vh] overflow-y-auto border-0 scale-in">
               <RewardsCenter
                 rewards={rewards}
                 onClose={() => setShowRewards(false)}
@@ -679,8 +805,8 @@ export default function MedTrackDashboard() {
         )}
 
         {showProfileManager && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-lg border border-gray-200">
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="card-3d max-w-4xl w-full max-h-[90vh] overflow-y-auto border-0 scale-in">
               <ProfileManager
                 profiles={profiles}
                 activeProfile={activeProfile}
@@ -690,8 +816,8 @@ export default function MedTrackDashboard() {
                 }}
                 onProfilesUpdate={setProfiles}
               />
-              <div className="p-4 flex justify-end">
-                <Button variant="outline" onClick={() => setShowProfileManager(false)}>
+              <div className="p-6 flex justify-end border-t border-gray-200">
+                <Button onClick={() => setShowProfileManager(false)} className="btn-light">
                   Close
                 </Button>
               </div>
@@ -700,15 +826,15 @@ export default function MedTrackDashboard() {
         )}
 
         {showExportManager && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-lg border border-gray-200">
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="card-3d max-w-4xl w-full max-h-[90vh] overflow-y-auto border-0 scale-in">
               <ExportManager
                 medications={activeMedications}
                 doseLogs={doseLogs.filter((log) => log.profileId === activeProfile)}
                 profileName={activeProfile_obj?.name || "Unknown"}
               />
-              <div className="p-4 flex justify-end">
-                <Button variant="outline" onClick={() => setShowExportManager(false)}>
+              <div className="p-6 flex justify-end border-t border-gray-200">
+                <Button onClick={() => setShowExportManager(false)} className="btn-light">
                   Close
                 </Button>
               </div>
@@ -717,14 +843,13 @@ export default function MedTrackDashboard() {
         )}
 
         {showMedicationForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-lg border border-gray-200">
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="card-3d max-w-2xl w-full max-h-[90vh] overflow-y-auto border-0 scale-in">
               <MedicationForm onSubmit={addMedication} onCancel={() => setShowMedicationForm(false)} />
             </div>
           </div>
         )}
 
-        {/* Dose Notification Popup */}
         <DoseNotificationPopup
           onLogDose={(medicationId, status) => {
             const medication = medications.find((med) => med.id === medicationId)

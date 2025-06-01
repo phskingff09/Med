@@ -161,24 +161,26 @@ export default function DoseLogger({ medications, onLogDose, doseLogs, rewards }
 
   return (
     <div className="space-y-6">
-      {/* Rewards Banner */}
-      <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                <Star className="w-5 h-5 text-yellow-600" />
+      {/* Enhanced Rewards Banner */}
+      <Card className="card-3d border-0 mb-6">
+        <CardContent className="p-0">
+          <div className="gradient-warning rounded-2xl p-6">
+            <div className="flex items-center justify-between text-white">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                  <Star className="w-8 h-8" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">Level {rewards.level}</p>
+                  <p className="text-yellow-100">
+                    {rewards.points} points • {rewards.streak} day streak
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-semibold text-yellow-800">Level {rewards.level}</p>
-                <p className="text-sm text-yellow-700">
-                  {rewards.points} points • {rewards.streak} day streak
-                </p>
+              <div className="text-right">
+                <p className="text-yellow-100 text-sm">Next level in</p>
+                <p className="text-2xl font-bold">{100 - (rewards.points % 100)} points</p>
               </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-yellow-700">Next level in</p>
-              <p className="font-semibold text-yellow-800">{100 - (rewards.points % 100)} points</p>
             </div>
           </div>
         </CardContent>
@@ -202,12 +204,12 @@ export default function DoseLogger({ medications, onLogDose, doseLogs, rewards }
                   return (
                     <Card
                       key={medication.id}
-                      className={`border-l-4 ${
+                      className={`card-3d border-0 hover:scale-105 transition-all duration-300 ${
                         doseStatus.canLog
                           ? doseStatus.isLate
-                            ? "border-l-orange-500 bg-orange-50"
-                            : "border-l-green-500 bg-green-50"
-                          : "border-l-blue-500"
+                            ? "gradient-secondary"
+                            : "gradient-success"
+                          : "glass-effect"
                       }`}
                     >
                       <CardContent className="p-4">
@@ -265,7 +267,13 @@ export default function DoseLogger({ medications, onLogDose, doseLogs, rewards }
                           <Button
                             size="sm"
                             onClick={() => logDose(medication.id, "taken")}
-                            className="flex-1"
+                            className={`flex-1 btn-3d ${
+                              !todayStatus.canLogMore
+                                ? "bg-gray-300 text-gray-500"
+                                : doseStatus.canLog
+                                  ? "gradient-primary text-white border-0"
+                                  : "bg-gray-200 text-gray-500"
+                            }`}
                             disabled={!doseStatus.canLog || !todayStatus.canLogMore}
                           >
                             <Check className="w-4 h-4 mr-1" />
